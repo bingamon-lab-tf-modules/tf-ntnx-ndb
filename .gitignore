@@ -53,6 +53,9 @@ reports/
 .devenv*
 devenv.local.nix
 
+# Devenv-generated devcontainer
+.devcontainer/
+
 # direnv
 .direnv
 
