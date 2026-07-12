@@ -273,6 +273,55 @@ output "available_profile_ids" {
   value       = local.all_profile_ids
 }
 
+# Connection-string outputs
+#
+# Per-database connection details derived from the provider-exported attributes
+# of nutanix_ndb_database.database. NDB exposes per-node connection metadata in
+# the computed database_nodes[*].dbserver map and per-database runtime metadata
+# in the computed properties list; both are only fully known after apply. The
+# configured listener port is surfaced from the module input so consumers can
+# assemble endpoints without a second lookup.
+output "database_connection_strings" {
+  description = "Map of database keys to connection details (exported nodes, properties, configured listener port, and a best-effort URI) derived from NDB-exported attributes of nutanix_ndb_database.database. Sensitive."
+  sensitive   = true
+  value = {
+    for k, v in nutanix_ndb_database.database : k => {
+      database_name = v.database_name
+      type          = v.type
+      status        = v.status
+
+      # Listener port as configured on the database instance (deterministic input).
+      listener_port = try(var.databases[k].postgresql_info.listener_port, null)
+
+      # Runtime metadata exported by NDB as name/value pairs.
+      properties = v.properties
+
+      # Per-node connection info exported by NDB. dbserver carries the runtime
+      # server connection map for each database node.
+      nodes = [
+        for n in v.database_nodes : {
+          id       = n.id
+          name     = n.name
+          primary  = n.primary
+          status   = n.status
+          dbserver = n.dbserver
+        }
+      ]
+
+      # Best-effort connection URI built from the primary node name and the
+      # configured listener port. Host resolution depends on the surrounding
+      # DNS/NDB configuration.
+      connection_string = format(
+        "%s://%s:%s/%s",
+        v.type == "postgres_database" ? "postgresql" : (v.type == "mysql_database" ? "mysql" : "db"),
+        try([for n in v.database_nodes : n.name if try(n.primary, false)][0], try(v.database_nodes[0].name, "")),
+        try(var.databases[k].postgresql_info.listener_port, ""),
+        try(v.database_name, "")
+      )
+    }
+  }
+}
+
 # Summary output
 output "ndb_summary" {
   description = "Summary of all NDB resources created"

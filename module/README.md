@@ -75,6 +75,7 @@ No modules.
 | <a name="output_available_sla_ids"></a> [available\_sla\_ids](#output\_available\_sla\_ids) | Map of existing (data-lookup) NDB SLA names to IDs. Populated only when enable\_data\_lookups is true. |
 | <a name="output_clone_ids"></a> [clone\_ids](#output\_clone\_ids) | Map of clone names to IDs |
 | <a name="output_clones"></a> [clones](#output\_clones) | Details of created NDB clones |
+| <a name="output_database_connection_strings"></a> [database\_connection\_strings](#output\_database\_connection\_strings) | Map of database keys to connection details (exported nodes, properties, configured listener port, and a best-effort URI) derived from NDB-exported attributes of nutanix\_ndb\_database.database. Sensitive. |
 | <a name="output_database_ids"></a> [database\_ids](#output\_database\_ids) | Map of database names to IDs |
 | <a name="output_databases"></a> [databases](#output\_databases) | Details of created NDB databases |
 | <a name="output_log_catchup_ids"></a> [log\_catchup\_ids](#output\_log\_catchup\_ids) | Map of log catchup names to IDs |
