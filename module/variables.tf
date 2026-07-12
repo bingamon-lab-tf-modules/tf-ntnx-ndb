@@ -565,3 +565,401 @@ variable "scale_databases" {
     error_message = "data_storage_size must be greater than 0 for all NDB scale databases."
   }
 }
+
+##################################################
+# DB server VM family (issue 590)
+#
+# NOTE: every NDB resource requires a reachable NDB endpoint. Configure
+# NDB_ENDPOINT / NDB_USERNAME / NDB_PASSWORD (provider ndb_endpoint /
+# ndb_username / ndb_password) or all NDB resources fail at apply.
+#
+# Credentials for these resources are NOT carried in the map(object) inputs
+# below (which are meant to be populated from PC YAML); they live in the
+# matching `sensitive = true` credential vars, keyed by the same map key.
+##################################################
+
+# DB server VM configuration
+variable "dbservervms" {
+  description = "Map of NDB DB server VMs to provision. Each entry needs a software profile (software_profile_id or software_profile_version_id) plus a network profile. Passwords are supplied via var.dbservervm_credentials, not here (spec §10)."
+  type = map(object({
+    database_type               = optional(string, "postgres_database")
+    compute_profile_id          = string
+    network_profile_id          = string
+    nx_cluster_id               = string
+    software_profile_id         = optional(string)
+    software_profile_version_id = optional(string)
+    description                 = optional(string)
+    latest_snapshot             = optional(bool)
+    snapshot_id                 = optional(string)
+    time_machine_id             = optional(string)
+    timezone                    = optional(string)
+
+    postgres_database = optional(object({
+      vm_name           = string
+      client_public_key = optional(string)
+    }))
+
+    maintenance_tasks = optional(object({
+      maintenance_window_id = optional(string)
+      tasks = optional(list(object({
+        task_type    = optional(string)
+        pre_command  = optional(string)
+        post_command = optional(string)
+      })))
+    }))
+
+    tags = optional(list(object({
+      tag_id = optional(string)
+      value  = optional(string)
+    })))
+
+    delete              = optional(bool)
+    remove              = optional(bool)
+    soft_remove         = optional(bool)
+    delete_vgs          = optional(bool)
+    delete_vm_snapshots = optional(bool)
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for k, v in var.dbservervms : (
+        v.software_profile_id != null && v.software_profile_version_id != null
+      )
+    ])
+    error_message = "Each DB server VM must reference a software profile via BOTH software_profile_id and software_profile_version_id (the provider requires the pair)."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.dbservervms : v.network_profile_id != null && v.network_profile_id != ""
+    ])
+    error_message = "network_profile_id is required for all DB server VMs."
+  }
+}
+
+# DB server VM sensitive credentials (keyed to match var.dbservervms)
+variable "dbservervm_credentials" {
+  description = "Sensitive credentials for DB server VMs, keyed to match var.dbservervms. Keep passwords out of YAML (spec §10)."
+  type = map(object({
+    vm_password = optional(string)
+  }))
+  default   = {}
+  sensitive = true
+}
+
+# DB server VM registration configuration (existing VMs)
+variable "dbservervm_registrations" {
+  description = "Map of existing DB server VMs to register with NDB. Login credentials (username/password/ssh_key) are supplied via var.dbservervm_registration_credentials, not here (spec §10)."
+  type = map(object({
+    database_type                      = optional(string, "postgres_database")
+    vm_ip                              = string
+    nxcluster_id                       = optional(string)
+    name                               = optional(string)
+    description                        = optional(string)
+    forced_install                     = optional(bool)
+    working_directory                  = optional(string)
+    update_name_description_in_cluster = optional(bool)
+
+    postgres_database = optional(object({
+      listener_port          = optional(string)
+      postgres_software_home = optional(string)
+    }))
+
+    tags = optional(list(object({
+      tag_id = optional(string)
+      value  = optional(string)
+    })))
+
+    delete              = optional(bool)
+    remove              = optional(bool)
+    soft_remove         = optional(bool)
+    delete_vgs          = optional(bool)
+    delete_vm_snapshots = optional(bool)
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for k, v in var.dbservervm_registrations : v.vm_ip != null && v.vm_ip != ""
+    ])
+    error_message = "vm_ip is required for all DB server VM registrations."
+  }
+}
+
+# DB server VM registration sensitive credentials (keyed to match registrations)
+variable "dbservervm_registration_credentials" {
+  description = "Sensitive login credentials for DB server VM registrations, keyed to match var.dbservervm_registrations. Keep secrets out of YAML (spec §10)."
+  type = map(object({
+    username = optional(string)
+    password = optional(string)
+    ssh_key  = optional(string)
+  }))
+  default   = {}
+  sensitive = true
+}
+
+# DB server authorization configuration (authorize DB servers against a time machine)
+variable "dbserver_authorizations" {
+  description = "Map of NDB DB server authorizations against a time machine. Each entry references a time machine by id or name."
+  type = map(object({
+    dbservers_id      = optional(list(string))
+    time_machine_id   = optional(string)
+    time_machine_name = optional(string)
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for k, v in var.dbserver_authorizations : (
+        (v.time_machine_id != null && v.time_machine_id != "") ||
+        (v.time_machine_name != null && v.time_machine_name != "")
+      )
+    ])
+    error_message = "Each DB server authorization must reference a time machine by time_machine_id or time_machine_name."
+  }
+}
+
+# NDB cluster registration configuration (register a Nutanix PE cluster with NDB)
+variable "clusters" {
+  description = "Map of Nutanix PE clusters to register with NDB (multi-cluster NDB). Admin credentials are supplied via var.cluster_credentials, not here (spec §10)."
+  type = map(object({
+    name              = string
+    cluster_ip        = string
+    storage_container = string
+    description       = optional(string)
+    agent_vm_prefix   = optional(string)
+    cluster_type      = optional(string)
+    port              = optional(number)
+    protocol          = optional(string)
+    version           = optional(string)
+
+    agent_network_info = optional(object({
+      dns = optional(string)
+      ntp = optional(string)
+    }))
+
+    networks_info = optional(list(object({
+      access_type = optional(list(string))
+      type        = optional(string)
+      network_info = optional(object({
+        gateway     = optional(string)
+        static_ip   = optional(string)
+        subnet_mask = optional(string)
+        vlan_name   = optional(string)
+      }))
+    })))
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for k, v in var.clusters : (
+        v.name != null && v.name != "" &&
+        v.cluster_ip != null && v.cluster_ip != "" &&
+        v.storage_container != null && v.storage_container != ""
+      )
+    ])
+    error_message = "name, cluster_ip, and storage_container are required for all NDB cluster registrations."
+  }
+}
+
+# NDB cluster registration sensitive credentials (keyed to match var.clusters)
+variable "cluster_credentials" {
+  description = "Sensitive admin credentials for NDB cluster registrations, keyed to match var.clusters. Keep secrets out of YAML (spec §10)."
+  type = map(object({
+    username = optional(string)
+    password = optional(string)
+  }))
+  default   = {}
+  sensitive = true
+}
+
+##################################################
+# Maintenance and tags (issue 590)
+##################################################
+
+# Maintenance window configuration
+variable "maintenance_windows" {
+  description = "Map of NDB maintenance windows. recurrence must be WEEKLY or MONTHLY; day_of_week (when set) must be an uppercase weekday."
+  type = map(object({
+    name          = string
+    recurrence    = string # WEEKLY, MONTHLY
+    start_time    = string
+    description   = optional(string)
+    duration      = optional(number)
+    day_of_week   = optional(string) # MONDAY..SUNDAY
+    week_of_month = optional(number)
+    timezone      = optional(string)
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for k, v in var.maintenance_windows : contains(["WEEKLY", "MONTHLY"], v.recurrence)
+    ])
+    error_message = "recurrence must be WEEKLY or MONTHLY for all NDB maintenance windows."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.maintenance_windows : (
+        v.day_of_week == null ||
+        contains(["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"], coalesce(v.day_of_week, "MONDAY"))
+      )
+    ])
+    error_message = "day_of_week must be an uppercase weekday (MONDAY..SUNDAY) for NDB maintenance windows."
+  }
+}
+
+# Maintenance task configuration (associate maintenance tasks to DB servers)
+variable "maintenance_tasks" {
+  description = "Map of NDB maintenance tasks. Reference the target window by maintenance_window_id (direct) or maintenance_window_key (a key in var.maintenance_windows, resolved to the created window's id). Each task should target a DB server via dbserver_id or dbserver_cluster."
+  type = map(object({
+    maintenance_window_id  = optional(string)
+    maintenance_window_key = optional(string)
+    dbserver_id            = optional(list(string))
+    dbserver_cluster       = optional(list(string))
+    tasks = optional(list(object({
+      task_type    = optional(string)
+      pre_command  = optional(string)
+      post_command = optional(string)
+    })))
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for k, v in var.maintenance_tasks : (
+        (v.maintenance_window_id != null && v.maintenance_window_id != "") ||
+        (v.maintenance_window_key != null && v.maintenance_window_key != "")
+      )
+    ])
+    error_message = "Each maintenance task must set maintenance_window_id or maintenance_window_key."
+  }
+}
+
+# Tag configuration
+variable "tags" {
+  description = "Map of NDB tags to create."
+  type = map(object({
+    name        = string
+    entity_type = string
+    description = optional(string)
+    required    = optional(bool)
+    status      = optional(string)
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for k, v in var.tags : (
+        v.name != null && v.name != "" &&
+        v.entity_type != null && v.entity_type != ""
+      )
+    ])
+    error_message = "name and entity_type are required for all NDB tags."
+  }
+}
+
+##################################################
+# Snapshot / restore one-shot actions (issue 590)
+##################################################
+
+# Database snapshot configuration (one-shot time-machine snapshot)
+variable "database_snapshots" {
+  description = "Map of one-shot NDB time-machine snapshot actions. Each entry references a time machine by time_machine_id or time_machine_name. One-shot semantics: the snapshot is taken on create; re-taking requires a NEW for_each key; destroy does not undo a snapshot already taken."
+  type = map(object({
+    name                    = optional(string)
+    time_machine_id         = optional(string)
+    time_machine_name       = optional(string)
+    expiry_date_timezone    = optional(string)
+    remove_schedule_in_days = optional(number)
+    replicate_to_clusters   = optional(list(string))
+    tags = optional(list(object({
+      tag_id = optional(string)
+      value  = optional(string)
+    })))
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for k, v in var.database_snapshots : (
+        (v.time_machine_id != null && v.time_machine_id != "") ||
+        (v.time_machine_name != null && v.time_machine_name != "")
+      )
+    ])
+    error_message = "Each database snapshot must reference a time machine by time_machine_id or time_machine_name."
+  }
+}
+
+# Database restore configuration (one-shot restore action)
+variable "database_restores" {
+  description = "Map of one-shot NDB database restore actions. Each entry targets a database_id and a source: snapshot_id, latest_snapshot, or user_pitr_timestamp. One-shot semantics: the restore runs on create; re-running requires a NEW for_each key; destroy does not undo a restore already applied."
+  type = map(object({
+    database_id         = string
+    snapshot_id         = optional(string)
+    latest_snapshot     = optional(string)
+    user_pitr_timestamp = optional(string)
+    time_zone_pitr      = optional(string)
+    restore_version     = optional(number)
+    tags = optional(list(object({
+      tag_id = optional(string)
+      value  = optional(string)
+    })))
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for k, v in var.database_restores : v.database_id != null && v.database_id != ""
+    ])
+    error_message = "database_id is required for all NDB database restores."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.database_restores : (
+        (v.snapshot_id != null && v.snapshot_id != "") ||
+        (v.latest_snapshot != null && v.latest_snapshot != "") ||
+        (v.user_pitr_timestamp != null && v.user_pitr_timestamp != "")
+      )
+    ])
+    error_message = "Each database restore must reference a source: snapshot_id, latest_snapshot, or user_pitr_timestamp."
+  }
+}
+
+##################################################
+# Software profile version (issue 590)
+##################################################
+
+# Software profile version configuration (publish a new version of a software profile)
+variable "software_profile_versions" {
+  description = "Map of new software-profile versions to publish against an existing software profile (profile_id)."
+  type = map(object({
+    name                  = string
+    engine_type           = string
+    profile_id            = string
+    description           = optional(string)
+    status                = optional(string)
+    available_cluster_ids = optional(list(string))
+    postgres_database = optional(object({
+      source_dbserver_id = optional(string)
+      os_notes           = optional(string)
+      db_software_notes  = optional(string)
+    }))
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for k, v in var.software_profile_versions : (
+        v.name != null && v.name != "" &&
+        v.engine_type != null && v.engine_type != "" &&
+        v.profile_id != null && v.profile_id != ""
+      )
+    ])
+    error_message = "name, engine_type, and profile_id are required for all NDB software profile versions."
+  }
+}

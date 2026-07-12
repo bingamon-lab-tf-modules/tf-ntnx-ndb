@@ -273,6 +273,223 @@ output "available_profile_ids" {
   value       = local.all_profile_ids
 }
 
+output "available_dbserver_ids" {
+  description = "Map of existing (data-lookup) NDB DB server names to IDs. Populated only when enable_data_lookups is true."
+  value       = local.dbserver_id_by_name
+}
+
+output "available_maintenance_window_ids" {
+  description = "Map of existing (data-lookup) NDB maintenance window names to IDs. Populated only when enable_data_lookups is true."
+  value       = local.maintenance_window_id_by_name
+}
+
+output "available_tag_ids" {
+  description = "Map of existing (data-lookup) NDB tag names to IDs. Populated only when enable_data_lookups is true."
+  value       = local.tag_id_by_name
+}
+
+output "available_snapshot_ids" {
+  description = "Map of existing (data-lookup) NDB snapshot names to IDs. Populated only when enable_data_lookups is true."
+  value       = local.snapshot_id_by_name
+}
+
+# DB server VM outputs
+output "dbservervms" {
+  description = "Details of provisioned NDB DB server VMs"
+  value = {
+    for k, v in nutanix_ndb_dbserver_vm.dbservervm : k => {
+      id           = v.id
+      name         = v.name
+      status       = v.status
+      ip_addresses = v.ip_addresses
+      era_version  = v.era_version
+    }
+  }
+}
+
+output "dbservervm_ids" {
+  description = "Map of DB server VM keys to IDs"
+  value = {
+    for k, v in nutanix_ndb_dbserver_vm.dbservervm : k => v.id
+  }
+}
+
+# DB server VM registration outputs
+output "dbservervm_registrations" {
+  description = "Details of registered NDB DB server VMs"
+  value = {
+    for k, v in nutanix_ndb_register_dbserver.dbservervm_registration : k => {
+      id     = v.id
+      name   = v.name
+      status = v.status
+      vm_ip  = v.vm_ip
+    }
+  }
+}
+
+output "dbservervm_registration_ids" {
+  description = "Map of DB server VM registration keys to IDs"
+  value = {
+    for k, v in nutanix_ndb_register_dbserver.dbservervm_registration : k => v.id
+  }
+}
+
+# DB server authorization outputs
+output "dbserver_authorizations" {
+  description = "Details of NDB DB server authorizations"
+  value = {
+    for k, v in nutanix_ndb_authorize_dbserver.dbserver_authorization : k => {
+      id                = v.id
+      time_machine_id   = v.time_machine_id
+      time_machine_name = v.time_machine_name
+    }
+  }
+}
+
+output "dbserver_authorization_ids" {
+  description = "Map of DB server authorization keys to IDs"
+  value = {
+    for k, v in nutanix_ndb_authorize_dbserver.dbserver_authorization : k => v.id
+  }
+}
+
+# Maintenance window outputs
+output "maintenance_windows" {
+  description = "Details of NDB maintenance windows"
+  value = {
+    for k, v in nutanix_ndb_maintenance_window.maintenance_window : k => {
+      id            = v.id
+      name          = v.name
+      status        = v.status
+      next_run_time = v.next_run_time
+    }
+  }
+}
+
+output "maintenance_window_ids" {
+  description = "Map of maintenance window keys to IDs"
+  value = {
+    for k, v in nutanix_ndb_maintenance_window.maintenance_window : k => v.id
+  }
+}
+
+# Maintenance task outputs
+output "maintenance_tasks" {
+  description = "Details of NDB maintenance tasks"
+  value = {
+    for k, v in nutanix_ndb_maintenance_task.maintenance_task : k => {
+      id                    = v.id
+      maintenance_window_id = v.maintenance_window_id
+    }
+  }
+}
+
+output "maintenance_task_ids" {
+  description = "Map of maintenance task keys to IDs"
+  value = {
+    for k, v in nutanix_ndb_maintenance_task.maintenance_task : k => v.id
+  }
+}
+
+# Tag outputs
+output "tags" {
+  description = "Details of NDB tags"
+  value = {
+    for k, v in nutanix_ndb_tag.tag : k => {
+      id          = v.id
+      name        = v.name
+      entity_type = v.entity_type
+      status      = v.status
+    }
+  }
+}
+
+output "tag_ids" {
+  description = "Map of tag keys to IDs"
+  value = {
+    for k, v in nutanix_ndb_tag.tag : k => v.id
+  }
+}
+
+# Cluster registration outputs
+output "clusters" {
+  description = "Details of NDB-registered Nutanix PE clusters"
+  value = {
+    for k, v in nutanix_ndb_cluster.cluster : k => {
+      id          = v.id
+      name        = v.name
+      status      = v.status
+      unique_name = v.unique_name
+    }
+  }
+}
+
+output "cluster_ids" {
+  description = "Map of cluster registration keys to IDs"
+  value = {
+    for k, v in nutanix_ndb_cluster.cluster : k => v.id
+  }
+}
+
+# Database snapshot outputs
+output "database_snapshots" {
+  description = "Details of NDB database snapshots"
+  value = {
+    for k, v in nutanix_ndb_database_snapshot.database_snapshot : k => {
+      id            = v.id
+      name          = v.name
+      status        = v.status
+      snapshot_uuid = v.snapshot_uuid
+    }
+  }
+}
+
+output "database_snapshot_ids" {
+  description = "Map of database snapshot keys to IDs"
+  value = {
+    for k, v in nutanix_ndb_database_snapshot.database_snapshot : k => v.id
+  }
+}
+
+# Database restore outputs
+output "database_restores" {
+  description = "Details of NDB database restore actions"
+  value = {
+    for k, v in nutanix_ndb_database_restore.database_restore : k => {
+      id          = v.id
+      status      = v.status
+      database_id = v.database_id
+    }
+  }
+}
+
+output "database_restore_ids" {
+  description = "Map of database restore keys to IDs"
+  value = {
+    for k, v in nutanix_ndb_database_restore.database_restore : k => v.id
+  }
+}
+
+# Software profile version outputs
+output "software_profile_versions" {
+  description = "Details of published NDB software profile versions"
+  value = {
+    for k, v in nutanix_ndb_software_version_profile.software_profile_version : k => {
+      id         = v.id
+      name       = v.name
+      version    = v.version
+      db_version = v.db_version
+    }
+  }
+}
+
+output "software_profile_version_ids" {
+  description = "Map of software profile version keys to IDs"
+  value = {
+    for k, v in nutanix_ndb_software_version_profile.software_profile_version : k => v.id
+  }
+}
+
 # Connection-string outputs
 #
 # Per-database connection details derived from the provider-exported attributes
@@ -333,9 +550,19 @@ output "ndb_summary" {
       length(nutanix_ndb_profile.network_profile) +
       length(nutanix_ndb_profile.software_profile)
     )
-    total_slas            = length(nutanix_ndb_sla.sla)
-    total_networks        = length(nutanix_ndb_network.network)
-    total_clones          = length(nutanix_ndb_clone.clone)
-    total_stretched_vlans = length(nutanix_ndb_stretched_vlan.stretched_vlan)
+    total_slas                      = length(nutanix_ndb_sla.sla)
+    total_networks                  = length(nutanix_ndb_network.network)
+    total_clones                    = length(nutanix_ndb_clone.clone)
+    total_stretched_vlans           = length(nutanix_ndb_stretched_vlan.stretched_vlan)
+    total_dbservervms               = length(nutanix_ndb_dbserver_vm.dbservervm)
+    total_dbservervm_registrations  = length(nutanix_ndb_register_dbserver.dbservervm_registration)
+    total_dbserver_authorizations   = length(nutanix_ndb_authorize_dbserver.dbserver_authorization)
+    total_maintenance_windows       = length(nutanix_ndb_maintenance_window.maintenance_window)
+    total_maintenance_tasks         = length(nutanix_ndb_maintenance_task.maintenance_task)
+    total_tags                      = length(nutanix_ndb_tag.tag)
+    total_clusters                  = length(nutanix_ndb_cluster.cluster)
+    total_database_snapshots        = length(nutanix_ndb_database_snapshot.database_snapshot)
+    total_database_restores         = length(nutanix_ndb_database_restore.database_restore)
+    total_software_profile_versions = length(nutanix_ndb_software_version_profile.software_profile_version)
   }
 }

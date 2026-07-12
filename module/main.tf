@@ -431,6 +431,27 @@ resource "nutanix_ndb_profile" "software_profile" {
   }
 }
 
+# NDB Software Profile Version resources (publish a new version of a software profile)
+resource "nutanix_ndb_software_version_profile" "software_profile_version" {
+  for_each = var.software_profile_versions
+
+  name                  = each.value.name
+  engine_type           = each.value.engine_type
+  profile_id            = each.value.profile_id
+  description           = each.value.description
+  status                = each.value.status
+  available_cluster_ids = each.value.available_cluster_ids
+
+  dynamic "postgres_database" {
+    for_each = each.value.postgres_database != null ? [each.value.postgres_database] : []
+    content {
+      source_dbserver_id = postgres_database.value.source_dbserver_id
+      os_notes           = postgres_database.value.os_notes
+      db_software_notes  = postgres_database.value.db_software_notes
+    }
+  }
+}
+
 # NDB SLA resources
 resource "nutanix_ndb_sla" "sla" {
   for_each = var.slas
