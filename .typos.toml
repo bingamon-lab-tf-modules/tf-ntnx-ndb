@@ -41,6 +41,8 @@ optimized = "optimized"
 organization = "organization"
 organizations = "organizations"
 organize = "organize"
+# provider API field name for the nutanix_ndb_register_database resource (misspelled upstream)
+postgress = "postgress"
 prioritize = "prioritize"
 randomize = "randomize"
 randomized = "randomized"
