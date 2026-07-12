@@ -130,6 +130,7 @@ No modules.
 | <a name="output_ndb_summary"></a> [ndb\_summary](#output\_ndb\_summary) | Summary of all NDB resources created |
 | <a name="output_network_ids"></a> [network\_ids](#output\_network\_ids) | Map of network names to IDs |
 | <a name="output_networks"></a> [networks](#output\_networks) | Details of created NDB networks |
+| <a name="output_outputs"></a> [outputs](#output\_outputs) | Aggregate of all module outputs (spec §7.6 contract, consumed by the landing zone as module.<x>.outputs). |
 | <a name="output_profile_ids"></a> [profile\_ids](#output\_profile\_ids) | Map of profile names to IDs |
 | <a name="output_profiles"></a> [profiles](#output\_profiles) | Details of created NDB profiles |
 | <a name="output_registered_database_ids"></a> [registered\_database\_ids](#output\_registered\_database\_ids) | Map of registered database names to IDs |

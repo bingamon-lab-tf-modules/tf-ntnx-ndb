@@ -24,62 +24,12 @@ output "database_ids" {
 # Profile outputs
 output "profiles" {
   description = "Details of created NDB profiles"
-  value = merge(
-    {
-      for k, v in nutanix_ndb_profile.compute_profile : k => {
-        id                = v.id
-        name              = v.name
-        type              = "Compute"
-        status            = v.status
-        engine_type       = v.engine_type
-        published         = v.published
-        latest_version_id = v.latest_version_id
-      }
-    },
-    {
-      for k, v in nutanix_ndb_profile.database_parameter_profile : k => {
-        id                = v.id
-        name              = v.name
-        type              = "Database_Parameter"
-        status            = v.status
-        engine_type       = v.engine_type
-        published         = v.published
-        latest_version_id = v.latest_version_id
-      }
-    },
-    {
-      for k, v in nutanix_ndb_profile.network_profile : k => {
-        id                = v.id
-        name              = v.name
-        type              = "Network"
-        status            = v.status
-        engine_type       = v.engine_type
-        published         = v.published
-        latest_version_id = v.latest_version_id
-      }
-    },
-    {
-      for k, v in nutanix_ndb_profile.software_profile : k => {
-        id                = v.id
-        name              = v.name
-        type              = "Software"
-        status            = v.status
-        engine_type       = v.engine_type
-        published         = v.published
-        latest_version_id = v.latest_version_id
-      }
-    }
-  )
+  value       = local.out_profiles
 }
 
 output "profile_ids" {
   description = "Map of profile names to IDs"
-  value = merge(
-    { for k, v in nutanix_ndb_profile.compute_profile : k => v.id },
-    { for k, v in nutanix_ndb_profile.database_parameter_profile : k => v.id },
-    { for k, v in nutanix_ndb_profile.network_profile : k => v.id },
-    { for k, v in nutanix_ndb_profile.software_profile : k => v.id }
-  )
+  value       = local.out_profile_ids
 }
 
 # SLA outputs
@@ -501,68 +451,255 @@ output "software_profile_version_ids" {
 output "database_connection_strings" {
   description = "Map of database keys to connection details (exported nodes, properties, configured listener port, and a best-effort URI) derived from NDB-exported attributes of nutanix_ndb_database.database. Sensitive."
   sensitive   = true
-  value = {
-    for k, v in nutanix_ndb_database.database : k => {
-      database_name = v.database_name
-      type          = v.type
-      status        = v.status
-
-      # Listener port as configured on the database instance (deterministic input).
-      listener_port = try(var.databases[k].postgresql_info.listener_port, null)
-
-      # Runtime metadata exported by NDB as name/value pairs.
-      properties = v.properties
-
-      # Per-node connection info exported by NDB. dbserver carries the runtime
-      # server connection map for each database node.
-      nodes = [
-        for n in v.database_nodes : {
-          id       = n.id
-          name     = n.name
-          primary  = n.primary
-          status   = n.status
-          dbserver = n.dbserver
-        }
-      ]
-
-      # Best-effort connection URI built from the primary node name and the
-      # configured listener port. Host resolution depends on the surrounding
-      # DNS/NDB configuration.
-      connection_string = format(
-        "%s://%s:%s/%s",
-        v.type == "postgres_database" ? "postgresql" : (v.type == "mysql_database" ? "mysql" : "db"),
-        try([for n in v.database_nodes : n.name if try(n.primary, false)][0], try(v.database_nodes[0].name, "")),
-        try(var.databases[k].postgresql_info.listener_port, ""),
-        try(v.database_name, "")
-      )
-    }
-  }
+  value       = local.out_database_connection_strings
 }
 
 # Summary output
 output "ndb_summary" {
   description = "Summary of all NDB resources created"
+  value       = local.out_ndb_summary
+}
+
+# ---------------------------------------------------------------------------
+# Aggregate output (spec §7.6 contract)
+# ---------------------------------------------------------------------------
+output "outputs" {
+  description = "Aggregate of all module outputs (spec §7.6 contract, consumed by the landing zone as module.<x>.outputs)."
+  sensitive   = true
   value = {
-    total_databases = length(nutanix_ndb_database.database)
-    total_profiles = (
-      length(nutanix_ndb_profile.compute_profile) +
-      length(nutanix_ndb_profile.database_parameter_profile) +
-      length(nutanix_ndb_profile.network_profile) +
-      length(nutanix_ndb_profile.software_profile)
-    )
-    total_slas                      = length(nutanix_ndb_sla.sla)
-    total_networks                  = length(nutanix_ndb_network.network)
-    total_clones                    = length(nutanix_ndb_clone.clone)
-    total_stretched_vlans           = length(nutanix_ndb_stretched_vlan.stretched_vlan)
-    total_dbservervms               = length(nutanix_ndb_dbserver_vm.dbservervm)
-    total_dbservervm_registrations  = length(nutanix_ndb_register_dbserver.dbservervm_registration)
-    total_dbserver_authorizations   = length(nutanix_ndb_authorize_dbserver.dbserver_authorization)
-    total_maintenance_windows       = length(nutanix_ndb_maintenance_window.maintenance_window)
-    total_maintenance_tasks         = length(nutanix_ndb_maintenance_task.maintenance_task)
-    total_tags                      = length(nutanix_ndb_tag.tag)
-    total_clusters                  = length(nutanix_ndb_cluster.cluster)
-    total_database_snapshots        = length(nutanix_ndb_database_snapshot.database_snapshot)
-    total_database_restores         = length(nutanix_ndb_database_restore.database_restore)
-    total_software_profile_versions = length(nutanix_ndb_software_version_profile.software_profile_version)
+    databases = {
+      for k, v in nutanix_ndb_database.database : k => {
+        id                    = v.id
+        name                  = v.name
+        status                = v.status
+        database_name         = v.database_name
+        type                  = v.type
+        database_cluster_type = v.database_cluster_type
+        time_machine_id       = v.time_machine_id
+      }
+    }
+    database_ids = {
+      for k, v in nutanix_ndb_database.database : k => v.id
+    }
+    profiles    = local.out_profiles
+    profile_ids = local.out_profile_ids
+    slas = {
+      for k, v in nutanix_ndb_sla.sla : k => {
+        name                 = v.name
+        unique_name          = v.unique_name
+        continuous_retention = v.continuous_retention
+        daily_retention      = v.daily_retention
+      }
+    }
+    sla_ids = {
+      for k, v in nutanix_ndb_sla.sla : k => v.id
+    }
+    networks = {
+      for k, v in nutanix_ndb_network.network : k => {
+        name    = v.name
+        type    = v.type
+        managed = v.managed
+      }
+    }
+    network_ids = {
+      for k, v in nutanix_ndb_network.network : k => v.id
+    }
+    clones = {
+      for k, v in nutanix_ndb_clone.clone : k => {
+        name          = v.name
+        status        = v.status
+        database_name = v.database_name
+        type          = v.type
+      }
+    }
+    clone_ids = {
+      for k, v in nutanix_ndb_clone.clone : k => v.id
+    }
+    stretched_vlans = {
+      for k, v in nutanix_ndb_stretched_vlan.stretched_vlan : k => {
+        name = v.name
+        type = v.type
+      }
+    }
+    stretched_vlan_ids = {
+      for k, v in nutanix_ndb_stretched_vlan.stretched_vlan : k => v.id
+    }
+    tms_clusters = {
+      for k, v in nutanix_ndb_tms_cluster.tms_cluster : k => {
+        id               = v.id
+        time_machine_id  = v.time_machine_id
+        nx_cluster_id    = v.nx_cluster_id
+        sla_id           = v.sla_id
+        status           = v.status
+        schedule_id      = v.schedule_id
+        owner_id         = v.owner_id
+        log_drive_id     = v.log_drive_id
+        log_drive_status = v.log_drive_status
+        date_created     = v.date_created
+        date_modified    = v.date_modified
+      }
+    }
+    tms_cluster_ids = {
+      for k, v in nutanix_ndb_tms_cluster.tms_cluster : k => v.id
+    }
+    log_catchups = {
+      for k, v in nutanix_ndb_log_catchups.log_catchup : k => {
+        id              = v.id
+        time_machine_id = v.time_machine_id
+        database_id     = v.database_id
+        for_restore     = v.for_restore
+      }
+    }
+    log_catchup_ids = {
+      for k, v in nutanix_ndb_log_catchups.log_catchup : k => v.id
+    }
+    registered_databases = {
+      for k, v in nutanix_ndb_register_database.register_database : k => {
+        id              = v.id
+        name            = v.name
+        database_name   = v.database_name
+        database_type   = v.databasetype
+        status          = v.status
+        database_status = v.database_status
+        time_machine_id = v.time_machine_id
+        time_zone       = v.time_zone
+        date_created    = v.date_created
+        date_modified   = v.date_modified
+      }
+    }
+    registered_database_ids = {
+      for k, v in nutanix_ndb_register_database.register_database : k => v.id
+    }
+    scaled_databases = {
+      for k, v in nutanix_ndb_database_scale.database_scale : k => {
+        id              = v.id
+        name            = v.name
+        database_name   = v.database_name
+        database_type   = v.databasetype
+        status          = v.status
+        time_machine_id = v.time_machine_id
+        date_created    = v.date_created
+        date_modified   = v.date_modified
+      }
+    }
+    scaled_database_ids = {
+      for k, v in nutanix_ndb_database_scale.database_scale : k => v.id
+    }
+    available_cluster_ids            = local.cluster_id_by_name
+    available_sla_ids                = local.sla_id_by_name
+    available_profile_ids            = local.all_profile_ids
+    available_dbserver_ids           = local.dbserver_id_by_name
+    available_maintenance_window_ids = local.maintenance_window_id_by_name
+    available_tag_ids                = local.tag_id_by_name
+    available_snapshot_ids           = local.snapshot_id_by_name
+    dbservervms = {
+      for k, v in nutanix_ndb_dbserver_vm.dbservervm : k => {
+        id           = v.id
+        name         = v.name
+        status       = v.status
+        ip_addresses = v.ip_addresses
+        era_version  = v.era_version
+      }
+    }
+    dbservervm_ids = {
+      for k, v in nutanix_ndb_dbserver_vm.dbservervm : k => v.id
+    }
+    dbservervm_registrations = {
+      for k, v in nutanix_ndb_register_dbserver.dbservervm_registration : k => {
+        id     = v.id
+        name   = v.name
+        status = v.status
+        vm_ip  = v.vm_ip
+      }
+    }
+    dbservervm_registration_ids = {
+      for k, v in nutanix_ndb_register_dbserver.dbservervm_registration : k => v.id
+    }
+    dbserver_authorizations = {
+      for k, v in nutanix_ndb_authorize_dbserver.dbserver_authorization : k => {
+        id                = v.id
+        time_machine_id   = v.time_machine_id
+        time_machine_name = v.time_machine_name
+      }
+    }
+    dbserver_authorization_ids = {
+      for k, v in nutanix_ndb_authorize_dbserver.dbserver_authorization : k => v.id
+    }
+    maintenance_windows = {
+      for k, v in nutanix_ndb_maintenance_window.maintenance_window : k => {
+        id            = v.id
+        name          = v.name
+        status        = v.status
+        next_run_time = v.next_run_time
+      }
+    }
+    maintenance_window_ids = {
+      for k, v in nutanix_ndb_maintenance_window.maintenance_window : k => v.id
+    }
+    maintenance_tasks = {
+      for k, v in nutanix_ndb_maintenance_task.maintenance_task : k => {
+        id                    = v.id
+        maintenance_window_id = v.maintenance_window_id
+      }
+    }
+    maintenance_task_ids = {
+      for k, v in nutanix_ndb_maintenance_task.maintenance_task : k => v.id
+    }
+    tags = {
+      for k, v in nutanix_ndb_tag.tag : k => {
+        id          = v.id
+        name        = v.name
+        entity_type = v.entity_type
+        status      = v.status
+      }
+    }
+    tag_ids = {
+      for k, v in nutanix_ndb_tag.tag : k => v.id
+    }
+    clusters = {
+      for k, v in nutanix_ndb_cluster.cluster : k => {
+        id          = v.id
+        name        = v.name
+        status      = v.status
+        unique_name = v.unique_name
+      }
+    }
+    cluster_ids = {
+      for k, v in nutanix_ndb_cluster.cluster : k => v.id
+    }
+    database_snapshots = {
+      for k, v in nutanix_ndb_database_snapshot.database_snapshot : k => {
+        id            = v.id
+        name          = v.name
+        status        = v.status
+        snapshot_uuid = v.snapshot_uuid
+      }
+    }
+    database_snapshot_ids = {
+      for k, v in nutanix_ndb_database_snapshot.database_snapshot : k => v.id
+    }
+    database_restores = {
+      for k, v in nutanix_ndb_database_restore.database_restore : k => {
+        id          = v.id
+        status      = v.status
+        database_id = v.database_id
+      }
+    }
+    database_restore_ids = {
+      for k, v in nutanix_ndb_database_restore.database_restore : k => v.id
+    }
+    software_profile_versions = {
+      for k, v in nutanix_ndb_software_version_profile.software_profile_version : k => {
+        id         = v.id
+        name       = v.name
+        version    = v.version
+        db_version = v.db_version
+      }
+    }
+    software_profile_version_ids = {
+      for k, v in nutanix_ndb_software_version_profile.software_profile_version : k => v.id
+    }
+    database_connection_strings = local.out_database_connection_strings
+    ndb_summary                 = local.out_ndb_summary
   }
 }
