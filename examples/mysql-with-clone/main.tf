@@ -1,9 +1,5 @@
 ################################################################################
-# tf-ntnx-ndb — minimal single PostgreSQL database example
-#
-# Provisions one PostgreSQL database instance with a time machine and exposes
-# the sensitive connection-string output. See the postgres-single, postgres-ha,
-# and mysql-with-clone directories for fuller scenarios.
+# MySQL Database with Clone Example
 ################################################################################
 
 terraform {
@@ -30,57 +26,54 @@ provider "nutanix" {
 }
 
 module "ndb" {
-  source = "git::https://github.com/bingamon-lab-tf-modules/tf-ntnx-ndb.git//module?ref=v0.1.0"
+  source = "../../module"
 
-  databases = {
-    postgres_app = {
-      name         = "postgres-app"
-      description  = "Application PostgreSQL database"
-      databasetype = "postgres_database"
+  enable_data_lookups = true
 
-      softwareprofileid    = var.software_profile_id
-      computeprofileid     = var.compute_profile_id
-      networkprofileid     = var.network_profile_id
-      dbparameterprofileid = var.database_parameter_profile_id
+  # Create a clone from existing time machine
+  clones = {
+    mysql_clone = {
+      name        = "mysql-clone-dev"
+      description = "MySQL clone for development"
 
-      nxclusterid  = var.cluster_id
-      sshpublickey = var.ssh_public_key
-      vm_password  = var.vm_password
+      time_machine_id = var.source_time_machine_id
+      latest_snapshot = true
+      time_zone       = "UTC"
 
-      postgresql_info = {
-        listener_port  = "5432"
-        database_size  = "200"
-        db_password    = var.db_password
-        database_names = "appdb"
-      }
+      nx_cluster_id   = var.cluster_id
+      create_dbserver = true
+      clustered       = false
+      node_count      = 1
 
-      timemachineinfo = {
-        name  = "postgres-app-tm"
-        slaid = var.sla_id
+      compute_profile_id            = var.compute_profile_id
+      network_profile_id            = var.network_profile_id
+      database_parameter_profile_id = var.database_parameter_profile_id
 
-        schedule = {
-          snapshottimeofday = {
-            hours   = 2
-            minutes = 0
-          }
+      ssh_public_key = var.ssh_public_key
+      vm_password    = var.vm_password
 
-          continuousschedule = {
-            enabled           = true
-            logbackupinterval = 30
-            snapshotsperday   = 1
-          }
-
-          weeklyschedule = {
-            enabled   = true
-            dayofweek = "SUNDAY"
-          }
-
-          monthlyschedule = {
-            enabled    = true
-            dayofmonth = 1
-          }
+      nodes = [
+        {
+          vmname           = "mysql-clone-vm"
+          computeprofileid = var.compute_profile_id
+          networkprofileid = var.network_profile_id
+          nx_cluster_id    = var.cluster_id
         }
-      }
+      ]
+
+      # Delete options
+      delete                 = true
+      remove                 = false
+      delete_time_machine    = true
+      delete_logical_cluster = true
+    }
+  }
+
+  # Perform log catchup before clone operations
+  log_catchups = {
+    pre_clone_catchup = {
+      time_machine_id = var.source_time_machine_id
+      for_restore     = true
     }
   }
 }
@@ -138,8 +131,8 @@ variable "cluster_id" {
   type        = string
 }
 
-variable "software_profile_id" {
-  description = "Software profile ID for PostgreSQL"
+variable "source_time_machine_id" {
+  description = "Source time machine ID for cloning"
   type        = string
 }
 
@@ -158,11 +151,6 @@ variable "database_parameter_profile_id" {
   type        = string
 }
 
-variable "sla_id" {
-  description = "SLA ID for time machine"
-  type        = string
-}
-
 variable "ssh_public_key" {
   description = "SSH public key for database server"
   type        = string
@@ -174,23 +162,21 @@ variable "vm_password" {
   sensitive   = true
 }
 
-variable "db_password" {
-  description = "Database password"
-  type        = string
-  sensitive   = true
-}
-
 ################################################################################
 # Outputs
 ################################################################################
 
-output "database_id" {
-  description = "Database instance ID"
-  value       = module.ndb.database_ids["postgres_app"]
+output "clone_id" {
+  description = "Clone instance ID"
+  value       = module.ndb.clone_ids["mysql_clone"]
 }
 
-output "database_connection_strings" {
-  description = "Sensitive per-database connection details for the provisioned database"
-  value       = module.ndb.database_connection_strings
-  sensitive   = true
+output "clone_status" {
+  description = "Clone status"
+  value       = module.ndb.clones["mysql_clone"].status
+}
+
+output "log_catchup_id" {
+  description = "Log catchup operation ID"
+  value       = module.ndb.log_catchup_ids["pre_clone_catchup"]
 }

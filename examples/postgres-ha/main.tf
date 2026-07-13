@@ -1,9 +1,5 @@
 ################################################################################
-# tf-ntnx-ndb — minimal single PostgreSQL database example
-#
-# Provisions one PostgreSQL database instance with a time machine and exposes
-# the sensitive connection-string output. See the postgres-single, postgres-ha,
-# and mysql-with-clone directories for fuller scenarios.
+# PostgreSQL HA Instance Example
 ################################################################################
 
 terraform {
@@ -30,57 +26,117 @@ provider "nutanix" {
 }
 
 module "ndb" {
-  source = "git::https://github.com/bingamon-lab-tf-modules/tf-ntnx-ndb.git//module?ref=v0.1.0"
+  source = "../../module"
 
+  enable_data_lookups = true
+
+  # Provision PostgreSQL HA database
   databases = {
-    postgres_app = {
-      name         = "postgres-app"
-      description  = "Application PostgreSQL database"
+    postgres_ha = {
+      name         = "postgres-ha-prod"
+      description  = "Production PostgreSQL HA cluster"
       databasetype = "postgres_database"
 
-      softwareprofileid    = var.software_profile_id
-      computeprofileid     = var.compute_profile_id
-      networkprofileid     = var.network_profile_id
-      dbparameterprofileid = var.database_parameter_profile_id
+      softwareprofileid = var.software_profile_id
+      computeprofileid  = var.compute_profile_id
+      networkprofileid  = var.network_profile_id
 
       nxclusterid  = var.cluster_id
+      clustered    = true
+      nodecount    = 3
       sshpublickey = var.ssh_public_key
       vm_password  = var.vm_password
 
       postgresql_info = {
         listener_port  = "5432"
-        database_size  = "200"
+        database_size  = "500"
         db_password    = var.db_password
-        database_names = "appdb"
+        database_names = "proddb"
+
+        ha_instance = {
+          cluster_name            = "postgres-ha-cluster"
+          patroni_cluster_name    = "patroni-cluster"
+          proxy_read_port         = "5001"
+          proxy_write_port        = "5000"
+          enable_synchronous_mode = true
+        }
       }
 
+      # Node configuration for HA
+      nodes = [
+        {
+          vmname           = "postgres-ha-node-1"
+          computeprofileid = var.compute_profile_id
+          networkprofileid = var.network_profile_id
+          nx_cluster_id    = var.cluster_id
+        },
+        {
+          vmname           = "postgres-ha-node-2"
+          computeprofileid = var.compute_profile_id
+          networkprofileid = var.network_profile_id
+          nx_cluster_id    = var.cluster_id
+        },
+        {
+          vmname           = "postgres-ha-node-3"
+          computeprofileid = var.compute_profile_id
+          networkprofileid = var.network_profile_id
+          nx_cluster_id    = var.cluster_id
+        }
+      ]
+
       timemachineinfo = {
-        name  = "postgres-app-tm"
-        slaid = var.sla_id
+        name        = "postgres-ha-tm"
+        description = "HA Time Machine"
+
+        sla_details = {
+          primary_sla_id = var.sla_id
+          nx_cluster_ids = [var.cluster_id]
+        }
 
         schedule = {
           snapshottimeofday = {
-            hours   = 2
+            hours   = 1
             minutes = 0
           }
 
           continuousschedule = {
             enabled           = true
-            logbackupinterval = 30
-            snapshotsperday   = 1
+            logbackupinterval = 15
+            snapshotsperday   = 4
           }
 
           weeklyschedule = {
             enabled   = true
-            dayofweek = "SUNDAY"
+            dayofweek = "SATURDAY"
           }
 
           monthlyschedule = {
             enabled    = true
             dayofmonth = 1
           }
+
+          quartelyschedule = {
+            enabled    = true
+            startmonth = "JANUARY"
+            dayofmonth = 1
+          }
+
+          yearlyschedule = {
+            enabled    = true
+            month      = "JANUARY"
+            dayofmonth = 1
+          }
         }
       }
+    }
+  }
+
+  # Configure time machine cluster for DR
+  tms_clusters = {
+    dr_cluster = {
+      time_machine_id = module.ndb.databases["postgres_ha"].time_machine_id
+      nx_cluster_id   = var.dr_cluster_id
+      sla_id          = var.dr_sla_id
     }
   }
 }
@@ -134,7 +190,12 @@ variable "nutanix_ndb_endpoint" {
 }
 
 variable "cluster_id" {
-  description = "Nutanix cluster ID"
+  description = "Primary Nutanix cluster ID"
+  type        = string
+}
+
+variable "dr_cluster_id" {
+  description = "DR Nutanix cluster ID for time machine replication"
   type        = string
 }
 
@@ -153,13 +214,13 @@ variable "network_profile_id" {
   type        = string
 }
 
-variable "database_parameter_profile_id" {
-  description = "Database parameter profile ID"
+variable "sla_id" {
+  description = "SLA ID for time machine"
   type        = string
 }
 
-variable "sla_id" {
-  description = "SLA ID for time machine"
+variable "dr_sla_id" {
+  description = "DR SLA ID for time machine replication"
   type        = string
 }
 
@@ -186,11 +247,15 @@ variable "db_password" {
 
 output "database_id" {
   description = "Database instance ID"
-  value       = module.ndb.database_ids["postgres_app"]
+  value       = module.ndb.database_ids["postgres_ha"]
 }
 
-output "database_connection_strings" {
-  description = "Sensitive per-database connection details for the provisioned database"
-  value       = module.ndb.database_connection_strings
-  sensitive   = true
+output "time_machine_id" {
+  description = "Time machine ID"
+  value       = module.ndb.databases["postgres_ha"].time_machine_id
+}
+
+output "tms_cluster_id" {
+  description = "Time machine cluster ID for DR"
+  value       = module.ndb.tms_cluster_ids["dr_cluster"]
 }

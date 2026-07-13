@@ -1,9 +1,5 @@
 ################################################################################
-# tf-ntnx-ndb — minimal single PostgreSQL database example
-#
-# Provisions one PostgreSQL database instance with a time machine and exposes
-# the sensitive connection-string output. See the postgres-single, postgres-ha,
-# and mysql-with-clone directories for fuller scenarios.
+# PostgreSQL Single Instance Example
 ################################################################################
 
 terraform {
@@ -30,18 +26,46 @@ provider "nutanix" {
 }
 
 module "ndb" {
-  source = "git::https://github.com/bingamon-lab-tf-modules/tf-ntnx-ndb.git//module?ref=v0.1.0"
+  source = "../../module"
 
+  # Enable data lookups to discover available profiles and SLAs
+  enable_data_lookups = true
+
+  # Create a compute profile
+  profiles = {
+    small_compute = {
+      name        = "small-compute"
+      description = "Small compute profile for development"
+      type        = "Compute"
+      published   = true
+
+      compute = {
+        cpus           = 2
+        core_per_cpu   = 1
+        memory_size_gb = 4
+      }
+    }
+  }
+
+  # Configure NDB network
+  networks = {
+    db_network = {
+      name       = "db-network"
+      type       = "DHCP"
+      cluster_id = var.cluster_id
+    }
+  }
+
+  # Provision PostgreSQL database
   databases = {
-    postgres_app = {
-      name         = "postgres-app"
-      description  = "Application PostgreSQL database"
+    postgres_dev = {
+      name         = "postgres-dev"
+      description  = "Development PostgreSQL database"
       databasetype = "postgres_database"
 
-      softwareprofileid    = var.software_profile_id
-      computeprofileid     = var.compute_profile_id
-      networkprofileid     = var.network_profile_id
-      dbparameterprofileid = var.database_parameter_profile_id
+      softwareprofileid = var.software_profile_id
+      computeprofileid  = var.compute_profile_id
+      networkprofileid  = var.network_profile_id
 
       nxclusterid  = var.cluster_id
       sshpublickey = var.ssh_public_key
@@ -51,11 +75,11 @@ module "ndb" {
         listener_port  = "5432"
         database_size  = "200"
         db_password    = var.db_password
-        database_names = "appdb"
+        database_names = "devdb"
       }
 
       timemachineinfo = {
-        name  = "postgres-app-tm"
+        name  = "postgres-dev-tm"
         slaid = var.sla_id
 
         schedule = {
@@ -153,11 +177,6 @@ variable "network_profile_id" {
   type        = string
 }
 
-variable "database_parameter_profile_id" {
-  description = "Database parameter profile ID"
-  type        = string
-}
-
 variable "sla_id" {
   description = "SLA ID for time machine"
   type        = string
@@ -186,11 +205,10 @@ variable "db_password" {
 
 output "database_id" {
   description = "Database instance ID"
-  value       = module.ndb.database_ids["postgres_app"]
+  value       = module.ndb.database_ids["postgres_dev"]
 }
 
-output "database_connection_strings" {
-  description = "Sensitive per-database connection details for the provisioned database"
-  value       = module.ndb.database_connection_strings
-  sensitive   = true
+output "time_machine_id" {
+  description = "Time machine ID"
+  value       = module.ndb.databases["postgres_dev"].time_machine_id
 }
