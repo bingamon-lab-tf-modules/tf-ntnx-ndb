@@ -58,6 +58,7 @@ monthlyschedule
 nce
 networkprofileid
 newdbservertimezone
+nixos
 nixpkgs
 nlewo
 nodecount
