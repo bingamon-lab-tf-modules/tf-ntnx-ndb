@@ -326,7 +326,12 @@ variable "stretched_vlans" {
 
 # Clone refresh configuration
 variable "clone_refreshes" {
-  description = "Map of NDB clone refresh operations"
+  description = <<-EOT
+    Map of NDB clone refresh operations (nutanix_ndb_clone_refresh). ONE-SHOT:
+    the refresh runs on create; re-running requires a NEW for_each key, and
+    destroy does not undo a refresh already applied. Same semantics as
+    database_snapshots / database_restores below.
+  EOT
   type = map(object({
     clone_id            = string
     snapshot_id         = optional(string)
@@ -378,7 +383,11 @@ variable "tms_clusters" {
 
 # Log catchup configuration
 variable "log_catchups" {
-  description = "Map of NDB log catchup operations for database instances"
+  description = <<-EOT
+    Map of NDB log catchup operations for database instances
+    (nutanix_ndb_log_catchups). ONE-SHOT: the catchup runs on create;
+    re-running requires a NEW for_each key, and destroy does not undo it.
+  EOT
   type = map(object({
     time_machine_id     = optional(string)
     database_id         = optional(string)
@@ -533,7 +542,12 @@ variable "register_databases" {
 
 # Scale database configuration
 variable "scale_databases" {
-  description = "Map of NDB database scale operations"
+  description = <<-EOT
+    Map of NDB database scale operations (nutanix_ndb_database_scale).
+    ONE-SHOT: the scale runs on create; scaling again requires a NEW for_each
+    key, and destroy does NOT scale the database back down. The config becomes
+    append-only history of scale events, not a declaration of desired size.
+  EOT
   type = map(object({
     database_uuid     = string
     application_type  = string # postgres_database
