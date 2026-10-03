@@ -112,3 +112,6 @@ vmname
 weeklyschedule
 yearlyschedule
 prek
+SecretSpec
+mktemp
+bingamon
