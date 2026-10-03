@@ -10,14 +10,14 @@ A description of the module goes here.
 ## Requirements
 
 | Name | Version |
-|------|---------|
+| ---- | ------- |
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.10.0 |
 | <a name="requirement_nutanix"></a> [nutanix](#requirement\_nutanix) | >= 2.4.2 |
 
 ## Providers
 
 | Name | Version |
-|------|---------|
+| ---- | ------- |
 | <a name="provider_nutanix"></a> [nutanix](#provider\_nutanix) | 2.4.2 |
 
 ## Modules
@@ -27,7 +27,7 @@ No modules.
 ## Resources
 
 | Name | Type |
-|------|------|
+| ---- | ---- |
 | [nutanix_ndb_authorize_dbserver.dbserver_authorization](https://registry.terraform.io/providers/nutanix/nutanix/latest/docs/resources/ndb_authorize_dbserver) | resource |
 | [nutanix_ndb_clone.clone](https://registry.terraform.io/providers/nutanix/nutanix/latest/docs/resources/ndb_clone) | resource |
 | [nutanix_ndb_clone_refresh.clone_refresh](https://registry.terraform.io/providers/nutanix/nutanix/latest/docs/resources/ndb_clone_refresh) | resource |
@@ -66,7 +66,7 @@ No modules.
 ## Inputs
 
 | Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
+| ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_clone_refreshes"></a> [clone\_refreshes](#input\_clone\_refreshes) | Map of NDB clone refresh operations (nutanix\_ndb\_clone\_refresh). ONE-SHOT:<br/>the refresh runs on create; re-running requires a NEW for\_each key, and<br/>destroy does not undo a refresh already applied. Same semantics as<br/>database\_snapshots / database\_restores below. | <pre>map(object({<br/>    clone_id            = string<br/>    snapshot_id         = optional(string)<br/>    user_pitr_timestamp = optional(string)<br/>    timezone            = optional(string, "UTC")<br/>  }))</pre> | `{}` | no |
 | <a name="input_clones"></a> [clones](#input\_clones) | Map of NDB database clones to create | <pre>map(object({<br/>    name                          = string<br/>    description                   = optional(string)<br/>    time_machine_id               = optional(string)<br/>    time_machine_name             = optional(string)<br/>    snapshot_id                   = optional(string)<br/>    user_pitr_timestamp           = optional(string)<br/>    latest_snapshot               = optional(bool)<br/>    time_zone                     = optional(string)<br/>    nx_cluster_id                 = optional(string)<br/>    ssh_public_key                = optional(string)<br/>    compute_profile_id            = optional(string)<br/>    network_profile_id            = optional(string)<br/>    database_parameter_profile_id = optional(string)<br/>    vm_password                   = optional(string)<br/>    create_dbserver               = optional(bool, true)<br/>    clustered                     = optional(bool, false)<br/>    node_count                    = optional(number, 1)<br/>    dbserver_cluster_id           = optional(string)<br/>    dbserver_logical_cluster_id   = optional(string)<br/><br/>    nodes = optional(list(object({<br/>      vmname           = optional(string)<br/>      networkprofileid = optional(string)<br/>      computeprofileid = optional(string)<br/>      nx_cluster_id    = optional(string)<br/>      dbserverid       = optional(string)<br/>      properties = optional(list(object({<br/>        name  = string<br/>        value = string<br/>      })))<br/>    })))<br/><br/>    postgresql_info = optional(object({<br/>      vm_name        = optional(string)<br/>      listener_port  = optional(string)<br/>      database_size  = optional(string)<br/>      db_password    = optional(string)<br/>      database_names = optional(string)<br/>      auth_method    = optional(string)<br/>      ha_instance = optional(object({<br/>        cluster_name             = optional(string)<br/>        patroni_cluster_name     = optional(string)<br/>        proxy_read_port          = optional(string)<br/>        proxy_write_port         = optional(string)<br/>        archive_wal_expire_days  = optional(number)<br/>        backup_policy            = optional(string)<br/>        enable_synchronous_mode  = optional(bool)<br/>        num_synchronous_standbys = optional(number)<br/>        enable_peer_auth         = optional(bool)<br/>      }))<br/>    }))<br/><br/>    actionarguments = optional(list(object({<br/>      name  = string<br/>      value = string<br/>    })))<br/><br/>    delete                 = optional(bool)<br/>    remove                 = optional(bool)<br/>    soft_remove            = optional(bool)<br/>    forced                 = optional(bool)<br/>    delete_time_machine    = optional(bool)<br/>    delete_logical_cluster = optional(bool)<br/>  }))</pre> | `{}` | no |
 | <a name="input_cluster_credentials"></a> [cluster\_credentials](#input\_cluster\_credentials) | Sensitive admin credentials for NDB cluster registrations, keyed to match var.clusters. Keep secrets out of YAML (spec §10). | <pre>map(object({<br/>    username = optional(string)<br/>    password = optional(string)<br/>  }))</pre> | `{}` | no |
@@ -96,7 +96,7 @@ No modules.
 ## Outputs
 
 | Name | Description |
-|------|-------------|
+| ---- | ----------- |
 | <a name="output_available_cluster_ids"></a> [available\_cluster\_ids](#output\_available\_cluster\_ids) | Map of existing (data-lookup) NDB cluster names to IDs. Populated only when enable\_data\_lookups is true. |
 | <a name="output_available_dbserver_ids"></a> [available\_dbserver\_ids](#output\_available\_dbserver\_ids) | Map of existing (data-lookup) NDB DB server names to IDs. Populated only when enable\_data\_lookups is true. |
 | <a name="output_available_maintenance_window_ids"></a> [available\_maintenance\_window\_ids](#output\_available\_maintenance\_window\_ids) | Map of existing (data-lookup) NDB maintenance window names to IDs. Populated only when enable\_data\_lookups is true. |
