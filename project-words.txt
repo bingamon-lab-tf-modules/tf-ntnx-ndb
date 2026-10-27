@@ -115,3 +115,5 @@ prek
 SecretSpec
 mktemp
 bingamon
+esac
+secops
