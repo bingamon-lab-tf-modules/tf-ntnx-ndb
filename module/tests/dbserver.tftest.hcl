@@ -216,6 +216,50 @@ run "cluster_registration" {
   }
 }
 
+# Test 3b: DB server VM registration + authorization with sensitive credentials.
+run "dbserver_registration_and_authorization" {
+  command = plan
+
+  variables {
+    dbservervm_registrations = {
+      existing_vm = {
+        vm_ip        = "10.0.20.15"
+        nxcluster_id = "cluster-id"
+        name         = "existing-pg-vm"
+        postgres_database = {
+          listener_port          = "5432"
+          postgres_software_home = "/usr/pgsql-15"
+        }
+      }
+    }
+
+    dbservervm_registration_credentials = {
+      existing_vm = {
+        username = "era"
+        password = "dummy-reg-dbserver-password"
+        ssh_key  = "mock-ssh-private-key"
+      }
+    }
+
+    dbserver_authorizations = {
+      auth_tm = {
+        dbservers_id    = ["dbserver-id-1"]
+        time_machine_id = "tm-id-1"
+      }
+    }
+  }
+
+  assert {
+    condition     = output.ndb_summary.total_dbservervm_registrations == 1
+    error_message = "Expected 1 DB server VM registration"
+  }
+
+  assert {
+    condition     = output.ndb_summary.total_dbserver_authorizations == 1
+    error_message = "Expected 1 DB server authorization"
+  }
+}
+
 # Test 4: Snapshot + restore one-shot actions plan.
 run "snapshot_and_restore" {
   command = plan

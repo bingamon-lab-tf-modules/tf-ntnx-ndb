@@ -594,9 +594,10 @@ resource "nutanix_ndb_clone" "clone" {
 resource "nutanix_ndb_clone_refresh" "clone_refresh" {
   for_each = var.clone_refreshes
 
-  clone_id    = each.value.clone_id
-  snapshot_id = each.value.snapshot_id
-  timezone    = each.value.timezone
+  clone_id            = each.value.clone_id
+  snapshot_id         = each.value.snapshot_id
+  user_pitr_timestamp = each.value.user_pitr_timestamp
+  timezone            = each.value.timezone
 }
 
 # NDB Stretched VLAN resources
