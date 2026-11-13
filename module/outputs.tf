@@ -164,7 +164,7 @@ output "registered_databases" {
       id              = v.id
       name            = v.name
       database_name   = v.database_name
-      database_type   = v.databasetype
+      database_type   = v.database_type
       status          = v.status
       database_status = v.database_status
       time_machine_id = v.time_machine_id
@@ -558,7 +558,7 @@ output "outputs" {
         id              = v.id
         name            = v.name
         database_name   = v.database_name
-        database_type   = v.databasetype
+        database_type   = v.database_type
         status          = v.status
         database_status = v.database_status
         time_machine_id = v.time_machine_id
